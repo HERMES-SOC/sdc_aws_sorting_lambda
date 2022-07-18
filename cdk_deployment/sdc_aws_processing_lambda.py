@@ -21,6 +21,4 @@ class SDCAWSSortingLambdaStack(Stack):
             code=aws_lambda.DockerImageCode.AssetCode("lambda_function/"),
         )
 
-        logging.info(
-            "Function created successfully: %s", sdc_aws_sorting_function
-        )
+        logging.info("Function created successfully: %s", sdc_aws_sorting_function)

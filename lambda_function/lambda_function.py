@@ -53,10 +53,7 @@ def sort_file(environment, file_key):
             logger.warning("FileSorter Initialized Successfully")
             sorter.sort_file()
 
-            return {
-                "statusCode": 200,
-                "body": json.dumps("File Sorted Successfully"),
-            }
+            return {"statusCode": 200, "body": json.dumps("File Sorted Successfully")}
 
         except BaseException as e:
             logger.error("Error occurred with FileSorter: %s", e)
@@ -71,10 +68,7 @@ def sort_file(environment, file_key):
             logger.warning("FileSorter Initialized Successfully")
             sorter.sort_file()
 
-            return {
-                "statusCode": 200,
-                "body": json.dumps("File Sorted Successfully"),
-            }
+            return {"statusCode": 200, "body": json.dumps("File Sorted Successfully")}
 
         except BaseException as e:
             logger.error("Error occurred with FileSorter: %s", e)
@@ -82,7 +76,4 @@ def sort_file(environment, file_key):
             return {"statusCode": 500, "body": json.dumps("Error Sorting File")}
 
     else:
-        return {
-            "statusCode": 500,
-            "body": json.dumps("Invalid key for environment"),
-        }
+        return {"statusCode": 500, "body": json.dumps("Invalid key for environment")}
