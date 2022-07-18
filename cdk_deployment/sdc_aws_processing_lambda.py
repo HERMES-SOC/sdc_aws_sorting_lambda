@@ -18,7 +18,7 @@ class SDCAWSSortingLambdaStack(Stack):
             description=(
                 "SWSOC Processing Lambda function deployed using AWS CDK Python"
             ),
-            code=aws_lambda.DockerImageCode.AssetCode("lambda_function/"),
+            code=aws_lambda.AssetCode("lambda_function/"),
         )
 
         logging.info("Function created successfully: %s", sdc_aws_sorting_function)
