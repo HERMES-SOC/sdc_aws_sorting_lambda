@@ -79,7 +79,9 @@ class FileSorter:
         # Log added file to Incoming Bucket in Timestream
         if not self.dry_run:
             self._log_to_timestream(
-                action_type="PUT", file_key=self.file_key, destination_bucket=s3_bucket
+                action_type="PUT",
+                file_key=self.file_key,
+                destination_bucket=s3_bucket,
             )
 
         try:
@@ -122,7 +124,6 @@ class FileSorter:
             )
             or self.dry_run
         ):
-
             # Dict of parsed science file
             destination_bucket = self._get_destination_bucket(file_key=self.file_key)
             current_year = datetime.date.today().year
@@ -141,7 +142,6 @@ class FileSorter:
             if not self._does_object_exists(
                 bucket=destination_bucket, file_key=new_file_key
             ):
-
                 # Copy file to destination bucket
                 self._copy_from_source_to_destination(
                     source_bucket=self.incoming_bucket_name,
@@ -234,7 +234,11 @@ class FileSorter:
                         self._send_slack_notification(
                             self.slack_client,
                             self.slack_channel,
-                            f"File ({file_key}) Successfully Sorted to {destination_bucket}",
+                            (
+                                f"File ({file_key}) "
+                                "Successfully Sorted to "
+                                "{destination_bucket}"
+                            ),
                         )
 
                 else:
@@ -296,7 +300,10 @@ class FileSorter:
 
         except SlackApiError as e:
             log.error(
-                {"status": "ERROR", "message": f"Error sending Slack Notification: {e}"}
+                {
+                    "status": "ERROR",
+                    "message": f"Error sending Slack Notification: {e}",
+                }
             )
 
     def _log_to_timestream(

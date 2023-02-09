@@ -32,7 +32,6 @@ def handler(event, context):
             environment = "DEVELOPMENT"
 
         for s3_event in event["Records"]:
-
             s3_bucket = s3_event["s3"]["bucket"]["name"]
             file_key = s3_event["s3"]["object"]["key"]
 
@@ -46,7 +45,6 @@ def handler(event, context):
             return response
 
     except KeyError:
-
         # Pass required variables to sort function and returns a 200 (Successful)
         # / 500 (Error) HTTP response
         response = sort_file(environment)
@@ -71,7 +69,6 @@ def sort_file(environment, s3_bucket=None, file_key=None):
             s3 = boto3.resource("s3")
             bucket = s3.Bucket("swsoc-incoming")
             for s3_object in bucket.objects.all():
-
                 FileSorter(
                     s3_bucket=s3_bucket,
                     s3_object=s3_object.key,
