@@ -125,7 +125,9 @@ class FileSorter:
                     send_slack_notification(
                         slack_client=self.slack_client,
                         slack_channel=self.slack_channel,
-                        slack_message=f"File ({file_key}) Successfully Sorted to {destination_bucket}",
+                        slack_message=(
+                            f"File ({file_key}) Successfully Sorted to {destination_bucket}"
+                        ),
                         slack_max_retries=self.slack_retries,
                         slack_retry_delay=self.slack_retry_delay,
                     )

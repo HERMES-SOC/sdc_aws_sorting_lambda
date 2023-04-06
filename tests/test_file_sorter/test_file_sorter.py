@@ -89,7 +89,11 @@ def test_file_sorter(s3_client, timestream_client):
     path_file = Path(TEST_L0_FILE).name
 
     # Check that the file was copied to the correct HERMES folder
-    assert s3_client.list_objects(Bucket=TEST_BUCKET,).get("Contents")[0].get(
+    assert s3_client.list_objects(
+        Bucket=TEST_BUCKET,
+    ).get(
+        "Contents"
+    )[0].get(
         "Key"
     ) == create_s3_file_key(parser, path_file)
 
@@ -147,7 +151,11 @@ def test_file_sorter_with_slack(s3_client, timestream_client):
     path_file = Path(TEST_L0_FILE).name
 
     # Check that the file was copied to the correct HERMES folder
-    assert s3_client.list_objects(Bucket=TEST_BUCKET,).get("Contents")[0].get(
+    assert s3_client.list_objects(
+        Bucket=TEST_BUCKET,
+    ).get(
+        "Contents"
+    )[0].get(
         "Key"
     ) == create_s3_file_key(parser, path_file)
 
