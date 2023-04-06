@@ -1,88 +1,63 @@
 """
-This module contains the handler function and the main function which contains the logic
-that initializes the FileSorter class in it's correct environment.
-
-TODO: Skeleton Code for initial repo, logic still needs to be implemented
-and docstrings expanded
+Handler function and the main function for the AWS Lambda,
+which initializes the FileSorter class in the appropriate environment.
 """
 
 import json
 import os
-import boto3
 
-# The below flake exceptions are to avoid the hermes.log writing
-# issue the above line solves
-from hermes_core import log  # noqa: E402
-from file_sorter.file_sorter import FileSorter  # noqa: E402
-
-# This is so the hermes.log file writes to the correct location
+from lambda_function.file_sorter import file_sorter
 
 
 def handler(event, context):
     """
-    This is the lambda handler function that passes variables to the function that
-    handles the logic that initializes the FileProcessor class in it's correct
-    environment.
+    Initialize the FileSorter class in the appropriate environment.
+
+    :param event: The event object containing the S3 bucket and file key
+    :type event: dict
+    :param context: The context object containing the AWS Lambda runtime information
+    :type context: dict
+    :return: The response object with status code and message
+    :rtype: dict
     """
-    # Extract needed information from event
-    try:
-        log.info("Event: {}".format(event))
-        environment = os.getenv("LAMBDA_ENVIRONMENT")
-        if environment is None:
-            environment = "DEVELOPMENT"
+    file_sorter.log.info("Event: {}".format(event))
+    environment = os.getenv("LAMBDA_ENVIRONMENT", "DEVELOPMENT")
 
-        for s3_event in event["Records"]:
-            s3_bucket = s3_event["s3"]["bucket"]["name"]
-            file_key = s3_event["s3"]["object"]["key"]
+    for s3_event in event["Records"]:
+        s3_bucket = s3_event["s3"]["bucket"]["name"]
+        file_key = s3_event["s3"]["object"]["key"]
 
-            log.info(f"Bucket: {s3_bucket}")
-            log.info(f"File Key: {file_key}")
+        file_sorter.log.info(f"Bucket: {s3_bucket}")
+        file_sorter.log.info(f"File Key: {file_key}")
 
-            # Pass required variables to sort function and returns a 200 (Successful)
-            # / 500 (Error) HTTP response
-            response = sort_file(environment, s3_bucket, file_key)
+        response = sort_file(environment, s3_bucket, file_key)
 
-            return response
-
-    except KeyError:
-        # Pass required variables to sort function and returns a 200 (Successful)
-        # / 500 (Error) HTTP response
-        response = sort_file(environment)
-        return {
-            "statusCode": 500,
-            "body": json.dumps("Key Error Extracting Variables from Event"),
-        }
+        return response
 
 
 def sort_file(environment, s3_bucket=None, file_key=None):
     """
-    This is the main function that handles logic that initializes the
-    FileProcessor class in it's correct environment.
+    Initialize the FileSorter class
+    in the appropriate environment.
+
+    :param environment: The current environment (e.g., 'DEVELOPMENT', 'PRODUCTION')
+    :type environment: str
+    :param s3_bucket: The S3 bucket where the file is stored
+    :type s3_bucket: str, optional
+    :param file_key: The S3 object key of the file
+    :type file_key: str, optional
+    :return: The response object with status code and message
+    :rtype: dict
     """
 
-    # Production (Official Release) Environment / Local Development
     try:
-        log.info(f"Initializing FileSorter - Environment: {environment}")
-
-        if not s3_bucket or not file_key:
-            log.info("No S3 Bucket or File Key Provided")
-            s3 = boto3.resource("s3")
-            bucket = s3.Bucket("swsoc-incoming")
-            for s3_object in bucket.objects.all():
-                FileSorter(
-                    s3_bucket=s3_bucket,
-                    s3_object=s3_object.key,
-                    environment=environment,
-                )
-            log.info("File Sorted Successfully")
-
-        else:
-            FileSorter(s3_bucket=s3_bucket, s3_object=file_key, environment=environment)
-            log.info("File Sorted Successfully")
+        file_sorter.FileSorter(
+            s3_bucket=s3_bucket, file_key=file_key, environment=environment
+        )
 
         return {"statusCode": 200, "body": json.dumps("File Sorted Successfully")}
 
-    except BaseException as e:
-        log.error({"status": "ERROR", "message": e})
+    except Exception as e:
+        file_sorter.log.error({"status": "ERROR", "message": e})
 
         return {"statusCode": 500, "body": json.dumps("Error Sorting File")}

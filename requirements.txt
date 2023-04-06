@@ -1,6 +1,11 @@
-hermes_core @ git+https://github.com/HERMES-SOC/hermes_core.git
-boto3
-pytest
-pytest-astropy 
-pytest-cov
-slack_sdk
+cdftracker @ git+https://github.com/HERMES-SOC/CDFTracker.git
+sdc_aws_utils @ git+https://github.com/dbarrous/sdc_aws_utils.git
+moto==4.1.6
+astropy==5.1.1
+pytest==7.2.2
+pytest-astropy==0.10.0
+pytest-cov==4.0.0
+psycopg==3.1.8
+flake8==6.0.0
+black==23.1.0
+slack_sdk==3.19.5

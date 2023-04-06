@@ -1,211 +1,100 @@
 """
-This Module contains the FileSorter class that will sort the files into the appropriate
+FileSorter class that will sort the files into the appropriate
 HERMES instrument folder.
 """
 import os
-import boto3
-import botocore
-import datetime
-import time
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
 
-# The below flake exceptions are to avoid the hermes.log writing
-# issue the above line solves
-from hermes_core import log  # noqa: E402
-from hermes_core.util import util  # noqa: E402
+from pathlib import Path
 
-# Starts boto3 session so it gets access to needed credentials
-session = boto3.Session()
-
-# Dict with instrument bucket names
-INSTRUMENT_BUCKET_NAMES = {
-    "eea": "hermes-eea",
-    "nemisis": "hermes-nemisis",
-    "merit": "hermes-merit",
-    "spani": "hermes-spani",
-}
-
-UNSORTED_BUCKET_NAME = "swsoc-unsorted"
+from sdc_aws_utils.logging import log
+from sdc_aws_utils.aws import (
+    create_s3_client_session,
+    create_timestream_client_session,
+    log_to_timestream,
+    object_exists,
+    create_s3_file_key,
+)
+from sdc_aws_utils.slack import get_slack_client, send_slack_notification
+from sdc_aws_utils.config import parser, INSTR_TO_BUCKET_NAME
 
 
 class FileSorter:
     """
-    Main FileSorter class which initializes an object with the data file and the
-    bucket event which triggered the lambda function to be called.
+    The FileSorter class initializes an object with the data file and the
+    bucket event that triggered the lambda function call.
     """
 
-    def __init__(self, s3_bucket, s3_object, environment, dry_run=False):
+    def __init__(
+        self,
+        s3_bucket: str,
+        file_key: str,
+        environment: str,
+        dry_run=False,
+        s3_client: type = None,
+        timestream_client: type = None,
+        slack_token: str = None,
+        slack_channel: str = None,
+        slack_retries: int = 3,
+        slack_retry_delay: int = 5,
+    ):
         """
-        FileSorter Constructorlogger
+        Initialize the FileSorter object.
         """
+        self.slack_token = slack_token or os.getenv("SDC_AWS_SLACK_TOKEN")
+        self.slack_channel = slack_channel or os.getenv("SDC_AWS_SLACK_CHANNEL")
 
-        # Initialize Class Variables
-        try:
-            self.incoming_bucket_name = s3_bucket
-            log.info(
-                f"Incoming Bucket Name Parsed Successfully: {self.incoming_bucket_name}"
-            )
+        log.error(f"slack_token: {self.slack_token}")
+        self.slack_client = (
+            get_slack_client(self.slack_token)
+            if self.slack_token and self.slack_channel
+            else None
+        )
 
-        except KeyError:
-            error_message = "KeyError when extracting S3 Bucket Name/ARN from dict"
-            log.error({"status": "ERROR", "message": error_message})
-            raise KeyError(error_message)
+        self.slack_retries = slack_retries
+        self.slack_retry_delay = slack_retry_delay
 
-        try:
-            self.file_key = s3_object
+        self.file_key = file_key
+        self.instrument_bucket_name = s3_bucket
 
-            log.info(
-                {
-                    "status": "INFO",
-                    "message": "Incoming Object Name"
-                    f"Parsed Successfully: {self.file_key}",
-                }
-            )
+        self.timestream_client = timestream_client or create_timestream_client_session()
+        self.s3_client = s3_client or create_s3_client_session()
 
-        except KeyError:
-            error_message = "KeyError when extracting S3 Object Name/eTag from dict"
-            log.error({"status": "ERROR", "message": error_message})
-            raise KeyError(error_message)
+        self.science_file = parser(self.file_key)
+        self.incoming_bucket_name = s3_bucket
+        self.destination_bucket = INSTR_TO_BUCKET_NAME[self.science_file["instrument"]]
 
-        # Variable that determines environment
-        self.environment = environment
-
-        # Variable that determines if FileSorter performs a Dry Run
         self.dry_run = dry_run
         if self.dry_run:
             log.warning("Performing Dry Run - Files will not be copied/removed")
 
-        # Log added file to Incoming Bucket in Timestream
-        if not self.dry_run:
-            self._log_to_timestream(
-                action_type="PUT",
-                file_key=self.file_key,
-                destination_bucket=s3_bucket,
-            )
-
-        try:
-            # Initialize the slack client
-            self.slack_client = WebClient(token=os.getenv("SLACK_TOKEN"))
-
-            # Initialize the slack channel
-            self.slack_channel = os.getenv("SLACK_CHANNEL")
-
-        except SlackApiError as e:
-            error_code = int(e.response["Error"]["Code"])
-            if error_code == 404:
-                log.error(
-                    {
-                        "status": "ERROR",
-                        "message": "Slack Token is invalid",
-                    }
-                )
-
-        except Exception as e:
-            log.error(
-                {
-                    "status": "ERROR",
-                    "message": f"Error when initializing slack client: {e}",
-                }
-            )
-
-        # Call sort function
+        self.environment = environment
         self._sort_file()
 
     def _sort_file(self):
         """
-        Function that chooses calls correct sorting function
-        based off file key name.
+        Determine the correct sorting function based on the file key name.
         """
-        # Verify object exists in incoming bucket
         if (
-            self._does_object_exists(
-                bucket=self.incoming_bucket_name, file_key=self.file_key
+            object_exists(
+                s3_client=self.s3_client,
+                bucket=self.incoming_bucket_name,
+                file_key=self.file_key,
             )
             or self.dry_run
         ):
-            # Dict of parsed science file
-            destination_bucket = self._get_destination_bucket(file_key=self.file_key)
-            current_year = datetime.date.today().year
-            current_month = datetime.date.today().month
-            if current_month < 10:
-                current_month = f"0{current_month}"
-            file_key_array = self.file_key.split("/")
-            parsed_file_key = file_key_array[-1]
+            # Get file name from file key
+            path_file = Path(self.file_key)
+            new_file_key = create_s3_file_key(parser, path_file.name)
 
-            new_file_key = (
-                f"{util.VALID_DATA_LEVELS[0]}/"
-                f"{current_year}/{current_month}/"
-                f"{parsed_file_key}"
+            self._copy_from_source_to_destination(
+                source_bucket=self.incoming_bucket_name,
+                file_key=self.file_key,
+                new_file_key=new_file_key,
+                destination_bucket=self.destination_bucket,
             )
-            # Verify object does not exist in destination bucket
-            if not self._does_object_exists(
-                bucket=destination_bucket, file_key=new_file_key
-            ):
-                # Copy file to destination bucket
-                self._copy_from_source_to_destination(
-                    source_bucket=self.incoming_bucket_name,
-                    file_key=self.file_key,
-                    new_file_key=new_file_key,
-                    destination_bucket=destination_bucket,
-                )
-
-            else:
-                # Add to unsorted if object already exists in destination bucket
-                new_file_key = (
-                    f"duplicate_file_with_attempted_timestamps/{self.file_key}_"
-                    f"{datetime.datetime.utcnow().strftime('%Y-%m-%d-%H%MZ')}"
-                )
-
-                log.error(
-                    {
-                        "status": "ERROR",
-                        "message": f"File {self.file_key}"
-                        f" already exists in {destination_bucket}",
-                    }
-                )
 
         else:
             raise ValueError("File does not exist in bucket")
-
-    def _get_destination_bucket(self, file_key):
-        """
-        Returns bucket in which the file will be sorted to
-        """
-        try:
-            file_key_array = file_key.split("/")
-            parsed_file_key = file_key_array[-1]
-
-            science_file = util.parse_science_filename(parsed_file_key)
-            destination_bucket = INSTRUMENT_BUCKET_NAMES[science_file["instrument"]]
-            log.info(f"Destination Bucket Parsed Successfully: {destination_bucket}")
-
-            return destination_bucket
-
-        except ValueError as e:
-            log.error({"status": "ERROR", "message": e})
-
-            raise ValueError(e)
-
-    def _does_object_exists(self, bucket, file_key):
-        """
-        Returns wether or not the file exists in the specified bucket
-        """
-        s3 = boto3.resource("s3")
-
-        try:
-            s3.Object(bucket, file_key).load()
-        except botocore.exceptions.ClientError as e:
-            if e.response["Error"]["Code"] == "404":
-                log.info(f"File {file_key} does not exist in Bucket {bucket}")
-                # The object does not exist.
-                return False
-            else:
-                # Something else has gone wrong.
-                raise
-        else:
-            log.info(f"File {file_key} already exists in Bucket {bucket}")
-            return True
 
     def _copy_from_source_to_destination(
         self,
@@ -215,171 +104,43 @@ class FileSorter:
         new_file_key=None,
     ):
         """
-        Function to copy file from S3 incoming bucket using bucket key
-        to destination bucket
+        Copy a file from the S3 incoming bucket using the bucket key
+        to the destination bucket.
         """
-        log.info(f"Copying {file_key} From {source_bucket} to {destination_bucket}")
+        log.info(f"Copying {file_key} from {source_bucket} to {destination_bucket}")
 
-        try:
-            # Initialize S3 Client and Copy Source Dict
-            s3 = boto3.resource("s3")
-            copy_source = {"Bucket": source_bucket, "Key": file_key}
+        copy_source = {"Bucket": source_bucket, "Key": file_key}
 
-            # Copy S3 file from incoming bucket to destination bucket
-            if not self.dry_run:
-                bucket = s3.Bucket(destination_bucket)
-                if new_file_key:
-                    bucket.copy(copy_source, new_file_key)
-                    if self.slack_client:
-                        self._send_slack_notification(
-                            self.slack_client,
-                            self.slack_channel,
-                            (
-                                f"File ({file_key}) "
-                                "Successfully Sorted to "
-                                f"{destination_bucket}"
-                            ),
-                        )
-
-                else:
-                    bucket.copy(copy_source, file_key)
-
-            # Log added file to Incoming Bucket in Timestream
-            if not self.dry_run:
-                self._log_to_timestream(
-                    action_type="PUT",
-                    file_key=file_key,
-                    new_file_key=new_file_key,
-                    source_bucket=source_bucket,
-                    destination_bucket=destination_bucket,
-                )
-
-            log.info(f"File {file_key} Successfully Moved to {destination_bucket}")
-
-        except botocore.exceptions.ClientError as e:
-            log.error({"status": "ERROR", "message": e})
-
-            raise e
-
-    @staticmethod
-    def _send_slack_notification(
-        slack_client,
-        slack_channel: str,
-        slack_message: str,
-        alert_type: str = "success",
-    ) -> None:
-        """
-        Function to send a Slack Notification
-        """
-        log.info(f"Sending Slack Notification to {slack_channel}")
-        try:
-            color = {
-                "success": "#9b59b6",
-                "error": "#ff0000",
-            }
-            ct = datetime.datetime.now()
-            ts = ct.strftime("%y-%m-%d %H:%M:%S")
-            slack_client.chat_postMessage(
-                channel=slack_channel,
-                text=f"{ts} - {slack_message}",
-                attachments=[
-                    {
-                        "color": color[alert_type],
-                        "blocks": [
-                            {
-                                "type": "section",
-                                "text": {
-                                    "type": "plain_text",
-                                    "text": f"{ts} - {slack_message}",
-                                },
-                            }
-                        ],
-                    }
-                ],
+        if not self.dry_run:
+            # Copy file from source bucket to destination bucket
+            self.s3_client.copy_object(
+                CopySource=copy_source,
+                Bucket=destination_bucket,
+                Key=new_file_key,
             )
 
-        except SlackApiError as e:
-            log.error(
-                {
-                    "status": "ERROR",
-                    "message": f"Error sending Slack Notification: {e}",
-                }
-            )
+            try:
+                # If Slack is enabled, send a slack notification
+                if self.slack_client:
+                    send_slack_notification(
+                        slack_client=self.slack_client,
+                        slack_channel=self.slack_channel,
+                        slack_message=f"File ({file_key}) Successfully Sorted to {destination_bucket}",
+                        slack_max_retries=self.slack_retries,
+                        slack_retry_delay=self.slack_retry_delay,
+                    )
+                # If Timestream is enabled, log the file
+                if self.timestream_client:
+                    log_to_timestream(
+                        timesteam_client=self.timestream_client,
+                        action_type="PUT",
+                        file_key=file_key,
+                        new_file_key=new_file_key,
+                        source_bucket=source_bucket,
+                        destination_bucket=destination_bucket,
+                    )
 
-    def _log_to_timestream(
-        self,
-        action_type,
-        file_key,
-        new_file_key=None,
-        source_bucket=None,
-        destination_bucket=None,
-    ):
-        """
-        Function to log to Timestream
-        """
-        log.info("Logging to Timestream")
-        CURRENT_TIME = str(int(time.time() * 1000))
-        try:
-            # Initialize Timestream Client
-            timestream = boto3.client("timestream-write")
+            except Exception as e:
+                log.error(f"Error Occurred: {e}")
 
-            if not source_bucket and not destination_bucket:
-                raise ValueError("A Source or Destination Buckets is required")
-
-            # connect to s3 - assuming your creds are all
-            # set up and you have boto3 installed
-            s3 = boto3.resource("s3")
-
-            # get the bucket
-
-            bucket = s3.Bucket(destination_bucket)
-            if action_type == "DELETE":
-                bucket = s3.Bucket(source_bucket)
-
-            # use loop and count increment
-            count_obj = 0
-            for i in bucket.objects.all():
-                print(i.key)
-                count_obj = count_obj + 1
-
-            # Write to Timestream
-            if not self.dry_run:
-                timestream.write_records(
-                    DatabaseName="sdc_aws_logs",
-                    TableName="sdc_aws_s3_bucket_log_table",
-                    Records=[
-                        {
-                            "Time": CURRENT_TIME,
-                            "Dimensions": [
-                                {"Name": "action_type", "Value": action_type},
-                                {
-                                    "Name": "source_bucket",
-                                    "Value": source_bucket or "N/A",
-                                },
-                                {
-                                    "Name": "destination_bucket",
-                                    "Value": destination_bucket or "N/A",
-                                },
-                                {"Name": "file_key", "Value": file_key},
-                                {
-                                    "Name": "new_file_key",
-                                    "Value": new_file_key or "N/A",
-                                },
-                                {
-                                    "Name": "current file count",
-                                    "Value": str(count_obj) or "N/A",
-                                },
-                            ],
-                            "MeasureName": "timestamp",
-                            "MeasureValue": str(datetime.datetime.utcnow().timestamp()),
-                            "MeasureValueType": "DOUBLE",
-                        },
-                    ],
-                )
-
-            log.info((f"File {file_key} Successfully Logged to Timestream"))
-
-        except botocore.exceptions.ClientError as e:
-            log.error({"status": "ERROR", "message": e})
-
-            raise e
+        log.info(f"File {file_key} Successfully Moved to {destination_bucket}")
