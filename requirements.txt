@@ -1,5 +1,5 @@
 cdftracker @ git+https://github.com/HERMES-SOC/CDFTracker.git
-sdc_aws_utils @ git+https://github.com/dbarrous/sdc_aws_utils.git
+sdc_aws_utils @ git+https://github.com/HERMES-SOC/sdc_aws_utils.git
 moto==4.1.6
 astropy==5.1.1
 pytest==7.2.2
