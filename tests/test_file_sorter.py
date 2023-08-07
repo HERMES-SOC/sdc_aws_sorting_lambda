@@ -1,7 +1,7 @@
 import boto3
 import pytest
 from moto import mock_s3, mock_timestreamwrite
-from file_sorter import file_sorter
+from lambda_function.file_sorter import file_sorter
 from sdc_aws_utils.config import parser
 from sdc_aws_utils.aws import create_s3_file_key
 from pathlib import Path

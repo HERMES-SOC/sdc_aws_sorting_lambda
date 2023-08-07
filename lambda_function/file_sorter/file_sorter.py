@@ -102,7 +102,11 @@ class FileSorter:
 
         self.science_file = parser(self.file_key)
         self.incoming_bucket_name = s3_bucket
-        self.destination_bucket = INSTR_TO_BUCKET_NAME[self.science_file["instrument"]]
+        self.destination_bucket = (
+            f'dev-{INSTR_TO_BUCKET_NAME[self.science_file["instrument"]]}'
+            if environment == "DEVELOPMENT"
+            else INSTR_TO_BUCKET_NAME[self.science_file["instrument"]]
+        )
 
         self.dry_run = dry_run
         if self.dry_run:

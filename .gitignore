@@ -23,6 +23,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 *.log
+config.yaml
 
 # Unit test / coverage reports
 htmlcov/
