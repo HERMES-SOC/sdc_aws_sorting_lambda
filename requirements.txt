@@ -1,2 +1,5 @@
-hermes_core @ git+https://github.com/HERMES-SOC/hermes_core # For Parser
-sdc_aws_utils @ git+https://github.com/HERMES-SOC/sdc_aws_utils.git # For Utils
+hermes_core @ git+https://github.com/HERMES-SOC/hermes_core
+sdc_aws_utils @ git+https://github.com/HERMES-SOC/sdc_aws_utils.git
+astropy==5.2.2
+slack_sdk==3.19.5
+boto3==1.28.4
