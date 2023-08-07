@@ -188,8 +188,8 @@ class FileSorter:
                 if self.timestream_client:
                     log_to_timestream(
                         timesteam_client=self.timestream_client,
-                        database_name=self.timestream_database_name,
-                        table_name=self.timestream_table_name,
+                        database_name=self.timestream_database,
+                        table_name=self.timestream_table,
                         action_type="PUT",
                         file_key=file_key,
                         new_file_key=new_file_key,
