@@ -3,7 +3,7 @@ FileSorter class that will sort the files into the appropriate
 HERMES instrument folder.
 """
 import os
-
+import json
 from pathlib import Path
 
 from sdc_aws_utils.logging import log
@@ -16,6 +16,45 @@ from sdc_aws_utils.aws import (
 )
 from sdc_aws_utils.slack import get_slack_client, send_slack_notification
 from sdc_aws_utils.config import parser, INSTR_TO_BUCKET_NAME
+
+
+def sort_file(event, context):
+    """
+    Initialize the FileSorter class
+    in the appropriate environment.
+
+    :param environment: The current environment (e.g., 'DEVELOPMENT', 'PRODUCTION')
+    :type environment: str
+    :param s3_bucket: The S3 bucket where the file is stored
+    :type s3_bucket: str, optional
+    :param file_key: The S3 object key of the file
+    :type file_key: str, optional
+    :return: The response object with status code and message
+    :rtype: dict
+    """
+    log.info("Event: {}".format(event))
+    log.info("Context: {}".format(context))
+    environment = os.getenv("LAMBDA_ENVIRONMENT", "DEVELOPMENT")
+
+    for s3_event in event["Records"]:
+        s3_bucket = s3_event["s3"]["bucket"]["name"]
+        file_key = s3_event["s3"]["object"]["key"]
+
+        log.info(f"Bucket: {s3_bucket}")
+        log.info(f"File Key: {file_key}")
+
+        response = sort_file(environment, s3_bucket, file_key)
+
+        return response
+    try:
+        FileSorter(s3_bucket=s3_bucket, file_key=file_key, environment=environment)
+
+        return {"statusCode": 200, "body": json.dumps("File Sorted Successfully")}
+
+    except Exception as e:
+        log.error({"status": "ERROR", "message": e})
+
+        return {"statusCode": 500, "body": json.dumps("Error Sorting File")}
 
 
 class FileSorter:

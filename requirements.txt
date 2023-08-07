@@ -1,4 +1,3 @@
-hermes_core @ git+https://github.com/HERMES-SOC/hermes_core
 sdc_aws_utils @ git+https://github.com/HERMES-SOC/sdc_aws_utils.git
 astropy==5.2.2
 slack_sdk==3.19.5
