@@ -187,7 +187,7 @@ class FileSorter:
                 # If Timestream is enabled, log the file
                 if self.timestream_client:
                     log_to_timestream(
-                        timesteam_client=self.timestream_client,
+                        timestream_client=self.timestream_client,
                         database_name=self.timestream_database,
                         table_name=self.timestream_table,
                         action_type="PUT",
