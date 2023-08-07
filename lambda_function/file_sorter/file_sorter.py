@@ -10,6 +10,7 @@ from sdc_aws_utils.logging import log
 from sdc_aws_utils.aws import (
     create_s3_client_session,
     create_timestream_client_session,
+    copy_file_in_s3,
     log_to_timestream,
     object_exists,
     create_s3_file_key,
@@ -32,8 +33,7 @@ def sort_file(event, context):
     :return: The response object with status code and message
     :rtype: dict
     """
-    log.info("Event: {}".format(event))
-    log.info("Context: {}".format(context))
+
     environment = os.getenv("LAMBDA_ENVIRONMENT", "DEVELOPMENT")
 
     for s3_event in event["Records"]:
@@ -101,20 +101,13 @@ class FileSorter:
             self.timestream_client = (
                 timestream_client or create_timestream_client_session()
             )
+            self.timestream_database = "sdc_aws_logs"
+            self.timestream_table = "sdc_aws_s3_bucket_log_table"
         except Exception as e:
             log.error(f"Error creating Timestream client: {e}")
             self.timestream_client = None
 
         self.s3_client = s3_client or create_s3_client_session()
-
-        self.timestream_database_name = (
-            "dev-sdc_aws_logs" if environment == "DEVELOPMENT" else "sdc_aws_logs"
-        )
-        self.timestream_table_name = (
-            "dev-sdc_aws_s3_bucket_log_table"
-            if environment == "DEVELOPMENT"
-            else "sdc_aws_s3_bucket_log_table"
-        )
 
         self.science_file = parser(self.file_key)
         self.incoming_bucket_name = s3_bucket
@@ -170,16 +163,15 @@ class FileSorter:
         """
         log.info(f"Copying {file_key} from {source_bucket} to {destination_bucket}")
 
-        copy_source = {"Bucket": source_bucket, "Key": file_key}
-
         if not self.dry_run:
-            # Copy file from source bucket to destination bucket
-            self.s3_client.copy_object(
-                CopySource=copy_source,
-                Bucket=destination_bucket,
-                Key=new_file_key,
+            # Copy file from source to destination
+            copy_file_in_s3(
+                s3_client=self.s3_client,
+                source_bucket=source_bucket,
+                destination_bucket=destination_bucket,
+                file_key=file_key,
+                new_file_key=new_file_key,
             )
-
             try:
                 # If Slack is enabled, send a slack notification
                 if self.slack_client:
@@ -203,6 +195,7 @@ class FileSorter:
                         new_file_key=new_file_key,
                         source_bucket=source_bucket,
                         destination_bucket=destination_bucket,
+                        environment=self.environment,
                     )
 
             except Exception as e:
