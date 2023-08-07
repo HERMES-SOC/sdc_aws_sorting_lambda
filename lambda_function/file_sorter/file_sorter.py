@@ -43,20 +43,15 @@ def sort_file(event, context):
         log.info(f"Bucket: {s3_bucket}")
         log.info(f"File Key: {file_key}")
 
-        response = FileSorter(
-            s3_bucket=s3_bucket, file_key=file_key, environment=environment
-        )
+        try:
+            FileSorter(s3_bucket=s3_bucket, file_key=file_key, environment=environment)
 
-        return response
-    try:
-        FileSorter(s3_bucket=s3_bucket, file_key=file_key, environment=environment)
+            return {"statusCode": 200, "body": json.dumps("File Sorted Successfully")}
 
-        return {"statusCode": 200, "body": json.dumps("File Sorted Successfully")}
+        except Exception as e:
+            log.error({"status": "ERROR", "message": e})
 
-    except Exception as e:
-        log.error({"status": "ERROR", "message": e})
-
-        return {"statusCode": 500, "body": json.dumps("Error Sorting File")}
+            return {"statusCode": 500, "body": json.dumps("Error Sorting File")}
 
 
 class FileSorter:
