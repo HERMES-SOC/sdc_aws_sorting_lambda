@@ -1,12 +1,4 @@
-hermes_core @ git+https://github.com/HERMES-SOC/hermes_core
-cdftracker @ git+https://github.com/HERMES-SOC/CDFTracker.git
+hermes_core @ git+https://github.com/HERMES-SOC/hermes_core # For testing
 sdc_aws_utils @ git+https://github.com/HERMES-SOC/sdc_aws_utils.git
-moto==4.1.6
-astropy==5.1.1
-pytest==7.2.2
-pytest-astropy==0.10.0
-pytest-cov==4.0.0
-psycopg==3.1.8
-flake8==6.0.0
-black==23.1.0
-slack_sdk==3.19.5
+astropy==5.2.2
+
