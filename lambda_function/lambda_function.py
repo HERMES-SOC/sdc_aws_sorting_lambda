@@ -6,7 +6,7 @@ which initializes the FileSorter class in the appropriate environment.
 import json
 import os
 
-from lambda_function.file_sorter import file_sorter
+from .file_sorter import file_sorter
 
 
 def handler(event, context):
