@@ -97,8 +97,24 @@ class FileSorter:
         self.file_key = file_key
         self.instrument_bucket_name = s3_bucket
 
-        self.timestream_client = timestream_client or create_timestream_client_session()
+        try:
+            self.timestream_client = (
+                timestream_client or create_timestream_client_session()
+            )
+        except Exception as e:
+            log.error(f"Error creating Timestream client: {e}")
+            self.timestream_client = None
+
         self.s3_client = s3_client or create_s3_client_session()
+
+        self.timestream_database_name = (
+            "dev-sdc_aws_logs" if environment == "DEVELOPMENT" else "sdc_aws_logs"
+        )
+        self.timestream_table_name = (
+            "dev-sdc_aws_s3_bucket_log_table"
+            if environment == "DEVELOPMENT"
+            else "sdc_aws_s3_bucket_log_table"
+        )
 
         self.science_file = parser(self.file_key)
         self.incoming_bucket_name = s3_bucket
@@ -180,6 +196,8 @@ class FileSorter:
                 if self.timestream_client:
                     log_to_timestream(
                         timesteam_client=self.timestream_client,
+                        database_name=self.timestream_database_name,
+                        table_name=self.timestream_table_name,
                         action_type="PUT",
                         file_key=file_key,
                         new_file_key=new_file_key,
