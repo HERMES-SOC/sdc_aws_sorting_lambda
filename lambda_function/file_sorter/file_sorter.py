@@ -43,7 +43,9 @@ def sort_file(event, context):
         log.info(f"Bucket: {s3_bucket}")
         log.info(f"File Key: {file_key}")
 
-        response = sort_file(environment, s3_bucket, file_key)
+        response = FileSorter(
+            s3_bucket=s3_bucket, file_key=file_key, environment=environment
+        )
 
         return response
     try:
