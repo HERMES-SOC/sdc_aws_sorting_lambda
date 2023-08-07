@@ -1,4 +1,2 @@
-hermes_core @ git+https://github.com/HERMES-SOC/hermes_core # For testing
-sdc_aws_utils @ git+https://github.com/HERMES-SOC/sdc_aws_utils.git
-astropy==5.2.2
+sdc_aws_utils @ git+https://github.com/dbarrous/sdc_aws_utils.git
 
