@@ -21,37 +21,45 @@ from sdc_aws_utils.config import parser, INSTR_TO_BUCKET_NAME
 
 def sort_file(event, context):
     """
-    Initialize the FileSorter class
-    in the appropriate environment.
+    Initialize the FileSorter class in the appropriate environment.
 
-    :param environment: The current environment (e.g., 'DEVELOPMENT', 'PRODUCTION')
-    :type environment: str
-    :param s3_bucket: The S3 bucket where the file is stored
-    :type s3_bucket: str, optional
-    :param file_key: The S3 object key of the file
-    :type file_key: str, optional
+    :param event: The triggering AWS Lambda event
+    :param context: The AWS Lambda context object
     :return: The response object with status code and message
     :rtype: dict
     """
 
     environment = os.getenv("LAMBDA_ENVIRONMENT", "DEVELOPMENT")
+    log.debug(f"Environment: {environment}")
+    log.debug(f"Event: {event}")
+    log.debug(f"Context: {context}")
 
-    for s3_event in event["Records"]:
-        s3_bucket = s3_event["s3"]["bucket"]["name"]
-        file_key = s3_event["s3"]["object"]["key"]
+    try:
+        if "Records" in event:
+            for s3_event in event["Records"]:
+                s3_bucket = s3_event["s3"]["bucket"]["name"]
+                file_key = s3_event["s3"]["object"]["key"]
+                FileSorter(s3_bucket, file_key, environment)
 
-        log.info(f"Bucket: {s3_bucket}")
-        log.info(f"File Key: {file_key}")
+        else:
+            log.info("No records found in event")
+        #     # Go through all files in the bucket
+        #     s3_bucket = (
+        #         "dev-swsoc-incoming"
+        #         if environment == "DEVELOPMENT"
+        #         else "swsoc-incoming"
+        #     )
+        #     s3_client = create_s3_client_session()
+        #     s3_objects = s3_client.list_objects_v2(Bucket=s3_bucket)
 
-        try:
-            FileSorter(s3_bucket=s3_bucket, file_key=file_key, environment=environment)
+        #     for s3_object in s3_objects["Contents"]:
+        #         file_key = s3_object["Key"]
+        #         FileSorter(s3_bucket, file_key, environment)
 
-            return {"statusCode": 200, "body": json.dumps("File Sorted Successfully")}
+        # return {"statusCode": 200, "body": json.dumps("File Sorted Successfully")}
 
-        except Exception as e:
-            log.error({"status": "ERROR", "message": e})
-
-            return {"statusCode": 500, "body": json.dumps("Error Sorting File")}
+    except Exception as e:
+        return {"statusCode": 500, "body": json.dumps(f"Error: {e}")}
 
 
 class FileSorter:
@@ -79,7 +87,6 @@ class FileSorter:
         self.slack_token = slack_token or os.getenv("SDC_AWS_SLACK_TOKEN")
         self.slack_channel = slack_channel or os.getenv("SDC_AWS_SLACK_CHANNEL")
 
-        log.error(f"slack_token: {self.slack_token}")
         self.slack_client = (
             get_slack_client(self.slack_token)
             if self.slack_token and self.slack_channel
