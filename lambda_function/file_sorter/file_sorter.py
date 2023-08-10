@@ -13,10 +13,16 @@ from sdc_aws_utils.aws import (
     copy_file_in_s3,
     log_to_timestream,
     object_exists,
+    check_file_existence_in_target_buckets,
     create_s3_file_key,
 )
 from sdc_aws_utils.slack import get_slack_client, send_slack_notification
-from sdc_aws_utils.config import parser, INSTR_TO_BUCKET_NAME
+from sdc_aws_utils.config import (
+    parser,
+    get_incoming_bucket,
+    get_instrument_bucket,
+    get_all_instrument_buckets,
+)
 
 
 def sort_file(event, context):
@@ -42,7 +48,20 @@ def sort_file(event, context):
                 FileSorter(s3_bucket, file_key, environment)
 
         else:
-            log.info("No records found in event")
+            log.info("No records found in event. Checking all files in bucket.")
+            s3_client = create_s3_client_session()
+            incoming_bucket = get_incoming_bucket(environment)
+            instrument_buckets = get_all_instrument_buckets(environment)
+
+            keys_in_s3 = list_files_in_bucket(s3_client, incoming_bucket)
+            for key in keys_in_s3:
+                if check_file_existence_in_target_buckets(
+                    s3_client, key, incoming_bucket, instrument_buckets
+                ):
+                    log.info(f"File {key} already exists in target buckets.")
+                    continue
+                log.info(f"File {key} does not exist in target buckets.")
+
         #     # Go through all files in the bucket
         #     s3_bucket = (
         #         "dev-swsoc-incoming"
