@@ -6,7 +6,7 @@ import os
 import json
 from pathlib import Path
 
-from sdc_aws_utils.logging import log
+from sdc_aws_utils.logging import log, configure_logger
 from sdc_aws_utils.aws import (
     create_s3_client_session,
     create_timestream_client_session,
@@ -24,6 +24,9 @@ from sdc_aws_utils.config import (
     get_instrument_bucket,
     get_all_instrument_buckets,
 )
+
+# Configure logging levels and format
+configure_logger()
 
 
 def handle_event(event, context):
