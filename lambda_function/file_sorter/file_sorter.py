@@ -25,7 +25,7 @@ from sdc_aws_utils.config import (
 )
 
 
-def sort_file(event, context):
+def handle_event(event, context):
     """
     Initialize the FileSorter class in the appropriate environment.
 
@@ -54,6 +54,8 @@ def sort_file(event, context):
             instrument_buckets = get_all_instrument_buckets(environment)
 
             keys_in_s3 = list_files_in_bucket(s3_client, incoming_bucket)
+            log.info(f"Found {len(keys_in_s3)} files in {incoming_bucket} bucket.")
+            log.info(f"Checking if files exist in target {instrument_buckets} buckets.")
             for key in keys_in_s3:
                 if check_file_existence_in_target_buckets(
                     s3_client, key, incoming_bucket, instrument_buckets
@@ -61,21 +63,7 @@ def sort_file(event, context):
                     log.info(f"File {key} already exists in target buckets.")
                     continue
                 log.info(f"File {key} does not exist in target buckets.")
-
-        #     # Go through all files in the bucket
-        #     s3_bucket = (
-        #         "dev-swsoc-incoming"
-        #         if environment == "DEVELOPMENT"
-        #         else "swsoc-incoming"
-        #     )
-        #     s3_client = create_s3_client_session()
-        #     s3_objects = s3_client.list_objects_v2(Bucket=s3_bucket)
-
-        #     for s3_object in s3_objects["Contents"]:
-        #         file_key = s3_object["Key"]
-        #         FileSorter(s3_bucket, file_key, environment)
-
-        # return {"statusCode": 200, "body": json.dumps("File Sorted Successfully")}
+            log.info("Finished checking all files in bucket.")
 
     except Exception as e:
         return {"statusCode": 500, "body": json.dumps(f"Error: {e}")}
@@ -132,12 +120,7 @@ class FileSorter:
 
         self.science_file = parser(self.file_key)
         self.incoming_bucket_name = s3_bucket
-        self.destination_bucket = (
-            f'dev-{INSTR_TO_BUCKET_NAME[self.science_file["instrument"]]}'
-            if environment == "DEVELOPMENT"
-            else INSTR_TO_BUCKET_NAME[self.science_file["instrument"]]
-        )
-
+        self.destination_bucket = get_instrument_bucket(self.science_file["instrument"])
         self.dry_run = dry_run
         if self.dry_run:
             log.warning("Performing Dry Run - Files will not be copied/removed")

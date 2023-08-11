@@ -19,4 +19,4 @@ def handler(event, context):
     :rtype: dict
     """
 
-    return file_sorter.sort_file(event, context)
+    return file_sorter.handle_event(event, context)
