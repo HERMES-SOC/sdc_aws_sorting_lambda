@@ -47,6 +47,7 @@ def handle_event(event, context):
                 s3_bucket = s3_event["s3"]["bucket"]["name"]
                 file_key = s3_event["s3"]["object"]["key"]
                 FileSorter(s3_bucket, file_key, environment)
+            return {"statusCode": 200, "body": json.dumps("Success Sorting File")}
 
         except Exception as e:
             return {"statusCode": 500, "body": json.dumps(f"Error: {e}")}
@@ -61,13 +62,13 @@ def handle_event(event, context):
         log.info(f"Found {len(keys_in_s3)} files in {incoming_bucket} bucket.")
         log.info(f"Checking if files exist in target {instrument_buckets} buckets.")
         for key in keys_in_s3:
-            # Get file name from file key
             try:
+                # Get file name from file key
                 path_file = Path(key)
                 parsed_file_key = create_s3_file_key(parser, path_file.name)
-            except Exception as e:
-                raise e
+            except ValueError:
                 continue
+
             if check_file_existence_in_target_buckets(
                 s3_client, parsed_file_key, incoming_bucket, instrument_buckets
             ):
@@ -75,6 +76,8 @@ def handle_event(event, context):
                 continue
             log.info(f"File {key} does not exist in target buckets.")
             log.info("Finished checking all files in bucket.")
+
+        return {"statusCode": 200, "body": json.dumps("Success Sorting Files")}
 
 
 class FileSorter:
