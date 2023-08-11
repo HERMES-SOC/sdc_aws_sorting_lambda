@@ -58,8 +58,11 @@ def handle_event(event, context):
             log.info(f"Found {len(keys_in_s3)} files in {incoming_bucket} bucket.")
             log.info(f"Checking if files exist in target {instrument_buckets} buckets.")
             for key in keys_in_s3:
+                # Get file name from file key
+                path_file = Path(key)
+                parsed_file_key = create_s3_file_key(parser, path_file.name)
                 if check_file_existence_in_target_buckets(
-                    s3_client, key, incoming_bucket, instrument_buckets
+                    s3_client, parsed_file_key, incoming_bucket, instrument_buckets
                 ):
                     log.info(f"File {key} already exists in target buckets.")
                     continue
