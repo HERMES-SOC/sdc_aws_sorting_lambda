@@ -40,10 +40,6 @@ def handle_event(event, context):
     """
 
     environment = os.getenv("LAMBDA_ENVIRONMENT", "DEVELOPMENT")
-    log.debug(f"Environment: {environment}")
-    log.debug(f"Event: {event}")
-    log.debug(f"Context: {context}")
-
     if "Records" in event:
         try:
             for s3_event in event["Records"]:
@@ -60,7 +56,6 @@ def handle_event(event, context):
         s3_client = create_s3_client_session()
         incoming_bucket = get_incoming_bucket(environment)
         instrument_buckets = get_all_instrument_buckets(environment)
-
         keys_in_s3 = list_files_in_bucket(s3_client, incoming_bucket)
         for key in keys_in_s3:
             try:
