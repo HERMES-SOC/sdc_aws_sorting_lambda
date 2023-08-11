@@ -121,8 +121,6 @@ class FileSorter:
             self.timestream_client = (
                 timestream_client or create_timestream_client_session()
             )
-            self.timestream_database = "sdc_aws_logs"
-            self.timestream_table = "sdc_aws_s3_bucket_log_table"
         except Exception as e:
             log.error(f"Error creating Timestream client: {e}")
             self.timestream_client = None
@@ -203,8 +201,6 @@ class FileSorter:
                 if self.timestream_client:
                     log_to_timestream(
                         timestream_client=self.timestream_client,
-                        database_name=self.timestream_database,
-                        table_name=self.timestream_table,
                         action_type="PUT",
                         file_key=file_key,
                         new_file_key=new_file_key,
