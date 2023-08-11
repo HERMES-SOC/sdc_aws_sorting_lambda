@@ -75,10 +75,9 @@ def handle_event(event, context):
             if check_file_existence_in_target_buckets(
                 s3_client, parsed_file_key, incoming_bucket, instrument_buckets
             ):
-                log.info(f"File {key} already exists in target buckets.")
+                log.info(f"File {parsed_file_key} already exists in target buckets.")
                 continue
-            log.info(f"File {key} does not exist in target buckets.")
-            log.info("Finished checking all files in bucket.")
+            log.info(f"File {parsed_file_key} does not exist in target buckets.")
 
         return {"statusCode": 200, "body": json.dumps("Success Sorting Files")}
 
