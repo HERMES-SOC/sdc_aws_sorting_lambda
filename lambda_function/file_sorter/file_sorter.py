@@ -41,36 +41,40 @@ def handle_event(event, context):
     log.debug(f"Event: {event}")
     log.debug(f"Context: {context}")
 
-    try:
-        if "Records" in event:
+    if "Records" in event:
+        try:
             for s3_event in event["Records"]:
                 s3_bucket = s3_event["s3"]["bucket"]["name"]
                 file_key = s3_event["s3"]["object"]["key"]
                 FileSorter(s3_bucket, file_key, environment)
 
-        else:
-            log.info("No records found in event. Checking all files in bucket.")
-            s3_client = create_s3_client_session()
-            incoming_bucket = get_incoming_bucket(environment)
-            instrument_buckets = get_all_instrument_buckets(environment)
+        except Exception as e:
+            return {"statusCode": 500, "body": json.dumps(f"Error: {e}")}
 
-            keys_in_s3 = list_files_in_bucket(s3_client, incoming_bucket)
-            log.info(f"Found {len(keys_in_s3)} files in {incoming_bucket} bucket.")
-            log.info(f"Checking if files exist in target {instrument_buckets} buckets.")
-            for key in keys_in_s3:
-                # Get file name from file key
+    else:
+        log.info("No records found in event. Checking all files in bucket.")
+        s3_client = create_s3_client_session()
+        incoming_bucket = get_incoming_bucket(environment)
+        instrument_buckets = get_all_instrument_buckets(environment)
+
+        keys_in_s3 = list_files_in_bucket(s3_client, incoming_bucket)
+        log.info(f"Found {len(keys_in_s3)} files in {incoming_bucket} bucket.")
+        log.info(f"Checking if files exist in target {instrument_buckets} buckets.")
+        for key in keys_in_s3:
+            # Get file name from file key
+            try:
                 path_file = Path(key)
                 parsed_file_key = create_s3_file_key(parser, path_file.name)
-                if check_file_existence_in_target_buckets(
-                    s3_client, parsed_file_key, incoming_bucket, instrument_buckets
-                ):
-                    log.info(f"File {key} already exists in target buckets.")
-                    continue
-                log.info(f"File {key} does not exist in target buckets.")
+            except Exception as e:
+                raise e
+                continue
+            if check_file_existence_in_target_buckets(
+                s3_client, parsed_file_key, incoming_bucket, instrument_buckets
+            ):
+                log.info(f"File {key} already exists in target buckets.")
+                continue
+            log.info(f"File {key} does not exist in target buckets.")
             log.info("Finished checking all files in bucket.")
-
-    except Exception as e:
-        return {"statusCode": 500, "body": json.dumps(f"Error: {e}")}
 
 
 class FileSorter:
