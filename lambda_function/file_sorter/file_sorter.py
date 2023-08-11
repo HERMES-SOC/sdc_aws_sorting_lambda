@@ -62,8 +62,6 @@ def handle_event(event, context):
         instrument_buckets = get_all_instrument_buckets(environment)
 
         keys_in_s3 = list_files_in_bucket(s3_client, incoming_bucket)
-        log.info(f"Found {len(keys_in_s3)} files in {incoming_bucket} bucket.")
-        log.info(f"Checking if files exist in target {instrument_buckets} buckets.")
         for key in keys_in_s3:
             try:
                 # Get file name from file key
@@ -75,9 +73,14 @@ def handle_event(event, context):
             if check_file_existence_in_target_buckets(
                 s3_client, parsed_file_key, incoming_bucket, instrument_buckets
             ):
-                log.info(f"File {parsed_file_key} already exists in target buckets.")
                 continue
+
             log.info(f"File {parsed_file_key} does not exist in target buckets.")
+            try:
+                FileSorter(s3_bucket, key, environment)
+            except Exception as e:
+                log.error(f"Error sorting file {parsed_file_key}: {e}")
+                continue
 
         return {"statusCode": 200, "body": json.dumps("Success Sorting Files")}
 
