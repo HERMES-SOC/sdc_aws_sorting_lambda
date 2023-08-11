@@ -149,9 +149,13 @@ class FileSorter:
             )
             or self.dry_run
         ):
-            # Get file name from file key
-            path_file = Path(self.file_key)
-            new_file_key = create_s3_file_key(parser, path_file.name)
+            try:
+                # Get file name from file key
+                path_file = Path(self.file_key)
+                new_file_key = create_s3_file_key(parser, path_file.name)
+            except ValueError:
+                log.warning(f"Error parsing file key: {self.file_key}")
+                return None
 
             self._copy_from_source_to_destination(
                 source_bucket=self.incoming_bucket_name,
